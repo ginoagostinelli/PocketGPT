@@ -112,14 +112,14 @@ class GPT(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def forward(self, idx, targets=None):
-        device = idx.device
-        B, T = idx.size()
+    def forward(self, input_ids, targets=None):
+        device = input_ids.device
+        B, T = input_ids.size()
         assert  T <= context_size, f'The sequence size ({T}) must be less than the context size ({context_size})'
 
         pos = torch.arange(0, T, dtype=torch.long, device=device) 
 
-        token_emb = self.transformer.token_embedding(idx)
+        token_emb = self.transformer.token_embedding(input_ids)
         positional_enc = self.transformer.positional_encoding(pos)
         x = self.transformer.dropout(token_emb + positional_enc)
 
@@ -136,17 +136,17 @@ class GPT(nn.Module):
 
         return logits, loss
 
-    def generate(self, idx, max_new_tokens):
+    def generate(self, input_ids, max_new_tokens):
         for _ in range(max_new_tokens):
-            idx_cond = idx if idx.size(1) <= context_size else idx[:, -context_size:]
+            input_ids_cond = input_ids if input_ids.size(1) <= context_size else input_ids[:, -context_size:]
 
-            logits, loss = self(idx_cond)
+            logits, loss = self(input_ids_cond)
 
             logits = logits[:, -1, :] # (B, C)
             probs = F.softmax(logits, dim=-1)
 
             # Sample from the distribution
-            idx_next = torch.multinomial(probs, num_samples=1)
-            idx = torch.cat((idx, idx_next), dim=1)
+            input_ids_next = torch.multinomial(probs, num_samples=1)
+            input_ids = torch.cat((input_ids, input_ids_next), dim=1)
 
-        return idx
+        return input_ids
