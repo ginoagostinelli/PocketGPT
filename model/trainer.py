@@ -1,16 +1,21 @@
 from gpt import GPT
-import torch
 import os
+import torch
 import numpy as np
 
-# hyperparameters
-batch_size = 32 
+# config
+batch_size = 32
 batch_iterations = 2500
-eval_interval = 250
+eval_interval = 220
 learning_rate = 3e-4
 predict_iters = 220
 context_size = 12
+save_checkpoint = True
+# save_steps = 1
+resume_from_checkpoint = True
 # ------------
+output_dir = os.path.join(os.path.dirname(__file__), 'output')
+
 
 def get_batch(split):
     data = train_dataset if split == 'train' else val_dataset
@@ -22,21 +27,38 @@ def get_batch(split):
 
 @torch.no_grad()
 def predict_loss():
-    out = {}
+    output = {}
     model.eval()
     for split in ['train', 'val']:
         losses = torch.zeros(predict_iters)
         for k in range(predict_iters):
             X, Y = get_batch(split)
-            logits, loss = model(X, Y)
+            _, loss = model(X, Y)
             losses[k] = loss.item()
-        out[split] = losses.mean()
+        output[split] = losses.mean()
     model.train()
-    return out
+    return output
 
-if __name__ == "__main__":
+
+def save_model(output_dir: str) -> None:
+    '''Save the trained model, then you can reload it with from_pretrained()'''
+    os.makedirs(output_dir, exist_ok=True)
+    torch.save(model.state_dict(), os.path.join(output_dir, 'model.pt'))
+
+
+def from_pretrained(output_dir: str) -> None:
+    ''' Load the trained model '''
+    if not os.path.exists(os.path.join(output_dir, 'model.pt')):
+        raise FileNotFoundError(f'"model.pt" not found in "{output_dir}"')
     
+    model.load_state_dict(torch.load(os.path.join(output_dir, 'model.pt')))
+
+
+if __name__ == "__main__":    
     model = GPT()
+    if resume_from_checkpoint:
+        from_pretrained(output_dir)
+    
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
     # TODO: add a data loader 
@@ -56,3 +78,6 @@ if __name__ == "__main__":
         
         loss.backward()
         optimizer.step()
+    
+    if save_checkpoint:
+        save_model(output_dir)
