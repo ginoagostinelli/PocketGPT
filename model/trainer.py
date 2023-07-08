@@ -14,6 +14,8 @@ context_size = 12
 save_checkpoint = True
 # save_steps = 1
 resume_from_checkpoint = False
+dataset = 'cornell_movie_dialogs'
+dataset_path = os.path.join('data', dataset)
 # ------------
 output_dir = os.path.join(os.path.dirname(__file__), 'output')
 
@@ -26,8 +28,8 @@ class Trainer:
         self.model = model
 
         # TODO: add a data loader 
-        self.train_dataset = np.memmap(os.path.join('', 'train.bin'), dtype=np.uint16, mode='r')
-        self.val_dataset = np.memmap(os.path.join('', 'val.bin'), dtype=np.uint16, mode='r')
+        self.train_dataset = np.memmap(os.path.join(dataset_path, 'train.bin'), dtype=np.uint16, mode='r')
+        self.val_dataset = np.memmap(os.path.join(dataset_path, 'val.bin'), dtype=np.uint16, mode='r')
 
 
     def get_batch(self, split):
@@ -46,7 +48,7 @@ class Trainer:
             losses = torch.zeros(predict_iters)
             for k in range(predict_iters):
                 X, Y = self.get_batch(split)
-                _, loss = self.model(X, Y)
+                loss, _ = self.model(X, Y)
                 losses[k] = loss.item()
             output[split] = losses.mean()
         self.model.train()
@@ -81,7 +83,7 @@ class Trainer:
 
             xb, yb = self.get_batch('train')
 
-            logits, loss = self.model(xb, yb)
+            loss, _ = self.model(xb, yb)
             optimizer.zero_grad(set_to_none=True)
             
             loss.backward()

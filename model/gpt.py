@@ -134,7 +134,7 @@ class GPT(nn.Module):
         else:
             loss = None
 
-        return logits, loss
+        return loss, logits
 
     def generate(self, input_ids, max_new_tokens):
         for _ in range(max_new_tokens):
