@@ -140,7 +140,7 @@ class GPT(nn.Module):
         for _ in range(max_new_tokens):
             input_ids_cond = input_ids if input_ids.size(1) <= context_size else input_ids[:, -context_size:]
 
-            logits, loss = self(input_ids_cond)
+            _, logits = self(input_ids_cond)
 
             logits = logits[:, -1, :] # (B, C)
             probs = F.softmax(logits, dim=-1)
