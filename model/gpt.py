@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from utils.utils import PreTrainedModel
 
 # Hyperparameters
 context_size = 12
@@ -89,7 +90,8 @@ class Block(nn.Module):
         x = x + self.mlp(self.ln_2(x))
         return x
 
-class GPT(nn.Module):
+
+class GPT(nn.Module, PreTrainedModel):
     def __init__(self):
         super().__init__()
 

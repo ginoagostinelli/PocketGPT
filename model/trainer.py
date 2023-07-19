@@ -61,17 +61,10 @@ class Trainer:
         torch.save(self.model.state_dict(), os.path.join(output_dir, 'model.pt'))
 
 
-    def from_pretrained(self, output_dir: str) -> None:
-        ''' Load the trained model '''
-        if not os.path.exists(os.path.join(output_dir, 'model.pt')):
-            raise FileNotFoundError(f'"model.pt" not found in "{output_dir}"')
-        
-        self.model.load_state_dict(torch.load(os.path.join(output_dir, 'model.pt')))
-
-
     def train(self):
         if resume_from_checkpoint:
-            self.from_pretrained(output_dir)
+            model_path = os.path.join(output_dir, 'model.pt')
+            self.model.from_pretrained(model_path)
     
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate)
 
