@@ -1,4 +1,4 @@
-from gpt import GPT
+from gpt import GPT, ModelArgs
 import os
 import torch
 import numpy as np
@@ -87,7 +87,8 @@ class Trainer:
 
 
 def main():
-    model = GPT()
+    args = ModelArgs()
+    model = GPT(args)
     trainer = Trainer(model)
     trainer.train()
 

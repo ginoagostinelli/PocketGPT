@@ -1,32 +1,34 @@
+from dataclasses import dataclass
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from utils.utils import PreTrainedModel
 
-# Hyperparameters
-context_size = 12
-vocab_size = 50257
-#n_positions = 1024
-n_embd = 128
-n_layer = 4
-n_head = 4
-dropout = 0.1
-#layer_norm_epsilon = 1e-5
-bias = False
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+@dataclass
+class ModelArgs:
+    context_size = 12
+    vocab_size = 50257
+    n_embd = 128
+    n_layer = 4
+    n_head = 4
+    dropout = 0.0
+    layer_norm_epsilon = 1e-5
+    bias = False
+
 
 class Head(nn.Module): 
 
-    def __init__(self, n_embd, h_size, bias):
+    def __init__(self, args, h_size):
         super().__init__()
         
-        self.key = nn.Linear(n_embd, h_size, bias=bias)
-        self.query = nn.Linear(n_embd, h_size, bias=bias)
-        self.values = nn.Linear(n_embd, h_size, bias=bias)
-        self.dropout = nn.Dropout(dropout)
+        self.key = nn.Linear(args.n_embd, h_size, bias=args.bias)
+        self.query = nn.Linear(args.n_embd, h_size, bias=args.bias)
+        self.values = nn.Linear(args.n_embd, h_size, bias=args.bias)
+        self.dropout = nn.Dropout(args.dropout)
         
         # Attention Mask
-        self.register_buffer('bias', torch.tril(torch.ones(context_size, context_size)))
+        self.register_buffer('bias', torch.tril(torch.ones(args.context_size, args.context_size)))
 
     def forward(self, x):
         B, T, C = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
@@ -44,14 +46,15 @@ class Head(nn.Module):
 
         return y
     
+
 class MultiHeadAttention(nn.Module):
-    def __init__(self, n_embd, n_head, bias):
+    def __init__(self, args):
         super().__init__()
 
-        head_size = n_embd // n_head
-        self.heads = nn.ModuleList([Head(n_embd, head_size, bias) for _ in range(n_head)])
-        self.projection = nn.Linear(head_size * n_head, n_embd)
-        self.dropout = nn.Dropout(dropout)
+        head_size = args.n_embd // args.n_head
+        self.heads = nn.ModuleList([Head(args, head_size) for _ in range(args.n_head)])
+        self.projection = nn.Linear(head_size * args.n_head, args.n_embd)
+        self.dropout = nn.Dropout(args.dropout)
 
     def forward(self, x):
         y = torch.cat([head(x) for head in self.heads], dim=-1)
@@ -61,15 +64,15 @@ class MultiHeadAttention(nn.Module):
 
 class MLP(nn.Module): # Feed forward
     
-    def __init__(self, n_embd, dropout, bias):
+    def __init__(self, args):
         super().__init__()
 
-        n_inner = 4 * n_embd # Dimensionality of the inner feed-forward layer
+        n_inner = 4 * args.n_embd # Dimensionality of the inner feed-forward layer
         self.seq = nn.Sequential(
-            nn.Linear(n_embd, n_inner, bias=bias),
+            nn.Linear(args.n_embd, n_inner, bias=args.bias),
             nn.GELU(),
-            nn.Linear(n_inner, n_embd, bias=bias), # projection layer
-            nn.Dropout(dropout),
+            nn.Linear(n_inner, args.n_embd, bias=args.bias), # projection layer
+            nn.Dropout(args.dropout),
         )
 
     def forward(self, x):
@@ -77,13 +80,13 @@ class MLP(nn.Module): # Feed forward
     
 
 class Block(nn.Module):
-    def __init__(self, n_embd, n_head, bias):
+    def __init__(self, args):
         super().__init__()
 
-        self.ln_1 = nn.LayerNorm(n_embd)
-        self.mha = MultiHeadAttention(n_embd, n_head, bias)
-        self.ln_2 = nn.LayerNorm(n_embd)
-        self.mlp = MLP(n_embd, dropout, bias)
+        self.ln_1 = nn.LayerNorm(args.n_embd)
+        self.mha = MultiHeadAttention(args)
+        self.ln_2 = nn.LayerNorm(args.n_embd)
+        self.mlp = MLP(args)
 
     def forward(self, x):
         x = x + self.mha(self.ln_1(x))
@@ -92,17 +95,19 @@ class Block(nn.Module):
 
 
 class GPT(nn.Module, PreTrainedModel):
-    def __init__(self):
+    def __init__(self, args):
         super().__init__()
 
+        self.args = args
+
         self.transformer = nn.ModuleDict(dict(
-            token_embedding = nn.Embedding(vocab_size, n_embd),
-            positional_encoding = nn.Embedding(context_size, n_embd),
-            dropout = nn.Dropout(dropout),
-            blocks = nn.ModuleList([Block(n_embd, n_head, bias) for _ in range(n_layer)]),
-            final_ln = nn.LayerNorm(n_embd, bias),
+            token_embedding = nn.Embedding(args.vocab_size, args.n_embd),
+            positional_encoding = nn.Embedding(args.context_size, args.n_embd),
+            dropout = nn.Dropout(args.dropout),
+            blocks = nn.ModuleList([Block(args) for _ in range(args.n_layer)]),
+            final_ln = nn.LayerNorm(args.n_embd, args.bias),
         ))
-        self.l_output_head = nn.Linear(n_embd, vocab_size, bias=bias)
+        self.l_output_head = nn.Linear(args.n_embd, args.vocab_size, bias=args.bias)
 
         self.apply(self._init_weights)
 
@@ -117,7 +122,7 @@ class GPT(nn.Module, PreTrainedModel):
     def forward(self, input_ids, targets=None):
         device = input_ids.device
         B, T = input_ids.size()
-        assert  T <= context_size, f'The sequence size ({T}) must be less than the context size ({context_size})'
+        assert  T <= self.args.context_size, f'The sequence size ({T}) must be less than the context size ({self.context_size})'
 
         pos = torch.arange(0, T, dtype=torch.long, device=device) 
 
@@ -140,7 +145,7 @@ class GPT(nn.Module, PreTrainedModel):
 
     def generate(self, input_ids, max_new_tokens):
         for _ in range(max_new_tokens):
-            input_ids_cond = input_ids if input_ids.size(1) <= context_size else input_ids[:, -context_size:]
+            input_ids_cond = input_ids if input_ids.size(1) <= self.args.context_size else input_ids[:, -self.args.context_size:]
 
             _, logits = self(input_ids_cond)
 
