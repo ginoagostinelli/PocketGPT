@@ -19,7 +19,7 @@ class ModelArgs:
 
 class Head(nn.Module): 
 
-    def __init__(self, args, h_size):
+    def __init__(self, args: ModelArgs, h_size: int):
         super().__init__()
         
         self.key = nn.Linear(args.n_embd, h_size, bias=args.bias)
@@ -30,7 +30,7 @@ class Head(nn.Module):
         # Attention Mask
         self.register_buffer('bias', torch.tril(torch.ones(args.context_size, args.context_size)))
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         B, T, C = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
 
         k = self.key(x)
@@ -48,7 +48,7 @@ class Head(nn.Module):
     
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, args):
+    def __init__(self, args: ModelArgs):
         super().__init__()
 
         head_size = args.n_embd // args.n_head
@@ -56,7 +56,7 @@ class MultiHeadAttention(nn.Module):
         self.projection = nn.Linear(head_size * args.n_head, args.n_embd)
         self.dropout = nn.Dropout(args.dropout)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         y = torch.cat([head(x) for head in self.heads], dim=-1)
         y = self.dropout(self.projection(y))
         return y
@@ -64,7 +64,7 @@ class MultiHeadAttention(nn.Module):
 
 class MLP(nn.Module): # Feed forward
     
-    def __init__(self, args):
+    def __init__(self, args: ModelArgs):
         super().__init__()
 
         n_inner = 4 * args.n_embd # Dimensionality of the inner feed-forward layer
@@ -75,12 +75,12 @@ class MLP(nn.Module): # Feed forward
             nn.Dropout(args.dropout),
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         return self.seq(x)
     
 
 class Block(nn.Module):
-    def __init__(self, args):
+    def __init__(self, args: ModelArgs):
         super().__init__()
 
         self.ln_1 = nn.LayerNorm(args.n_embd)
@@ -95,7 +95,7 @@ class Block(nn.Module):
 
 
 class GPT(nn.Module, PreTrainedModel):
-    def __init__(self, args):
+    def __init__(self, args: ModelArgs):
         super().__init__()
 
         self.args = args
@@ -111,7 +111,7 @@ class GPT(nn.Module, PreTrainedModel):
 
         self.apply(self._init_weights)
 
-    def _init_weights(self, module):
+    def _init_weights(self, module: nn.Module):
         if isinstance(module, nn.Linear):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
             if module.bias is not None:
@@ -119,7 +119,7 @@ class GPT(nn.Module, PreTrainedModel):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def forward(self, input_ids, targets=None):
+    def forward(self, input_ids, targets= None):
         device = input_ids.device
         B, T = input_ids.size()
         assert  T <= self.args.context_size, f'The sequence size ({T}) must be less than the context size ({self.context_size})'
