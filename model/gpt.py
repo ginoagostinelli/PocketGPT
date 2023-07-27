@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import torch
-import torch.nn as nn
-from torch.nn import functional as F
+from torch import nn
+import torch.nn.functional as F
 from utils.utils import PreTrainedModel
 
 
@@ -119,7 +119,7 @@ class GPT(nn.Module, PreTrainedModel):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def forward(self, input_ids, targets= None):
+    def forward(self, input_ids, targets=None):
         device = input_ids.device
         B, T = input_ids.size()
         assert  T <= self.args.context_size, f'The sequence size ({T}) must be less than the context size ({self.context_size})'
