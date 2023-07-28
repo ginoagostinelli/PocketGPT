@@ -8,11 +8,11 @@ from utils.utils import PreTrainedModel
 
 @dataclass
 class ModelArgs:
-    context_size = 12
+    context_size = 1024
     vocab_size = 50257
-    n_embd = 128
-    n_layer = 4
-    n_head = 4
+    n_embd = 768
+    n_layer = 12
+    n_head = 12
     dropout = 0.0
     layer_norm_epsilon = 1e-5
     bias = False
