@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import math
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -15,10 +16,10 @@ class ModelArgs:
     dropout = 0.0
     layer_norm_epsilon = 1e-5
     bias = False
+    initializer_range = 0.01
 
 
 class Head(nn.Module): 
-
     def __init__(self, args: ModelArgs, h_size: int):
         super().__init__()
         
@@ -63,7 +64,6 @@ class MultiHeadAttention(nn.Module):
 
 
 class MLP(nn.Module): # Feed forward
-    
     def __init__(self, args: ModelArgs):
         super().__init__()
 
@@ -92,48 +92,52 @@ class Block(nn.Module):
         x = x + self.mha(self.ln_1(x))
         x = x + self.mlp(self.ln_2(x))
         return x
-
+    
 
 class GPT(nn.Module, PreTrainedModel):
     def __init__(self, args: ModelArgs):
         super().__init__()
-
+        
         self.args = args
 
-        self.transformer = nn.ModuleDict(dict(
-            token_embedding = nn.Embedding(args.vocab_size, args.n_embd),
-            positional_encoding = nn.Embedding(args.context_size, args.n_embd),
-            dropout = nn.Dropout(args.dropout),
-            blocks = nn.ModuleList([Block(args) for _ in range(args.n_layer)]),
-            final_ln = nn.LayerNorm(args.n_embd, args.bias),
-        ))
-        self.l_output_head = nn.Linear(args.n_embd, args.vocab_size, bias=args.bias)
+        self.token_embeddings = nn.Embedding(args.vocab_size, args.n_embd)
+        self.positional_encoding = nn.Embedding(args.context_size, args.n_embd)
+        self.dropout = nn.Dropout(args.dropout)
+        self.layers = nn.ModuleList([Block(args) for _ in range(args.n_layer)])
+        self.norm = nn.LayerNorm(args.n_embd, args.bias)
 
+        self.output = nn.Linear(args.n_embd, args.vocab_size, bias=args.bias)
+        
         self.apply(self._init_weights)
 
     def _init_weights(self, module: nn.Module):
-        if isinstance(module, nn.Linear):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-            if module.bias is not None:
-                torch.nn.init.zeros_(module.bias)
-        elif isinstance(module, nn.Embedding):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+        std = self.args.initializer_range
 
-    def forward(self, input_ids, targets=None):
-        device = input_ids.device
-        B, T = input_ids.size()
-        assert  T <= self.args.context_size, f'The sequence size ({T}) must be less than the context size ({self.context_size})'
+        if isinstance(module, nn.Linear):
+            nn.init.normal_(module.weight, mean=0.0, std=std)
+            if module.bias is not None:
+                nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            nn.init.normal_(module.weight, mean=0.0, std=std)
+
+    def forward(self, tokens: torch.LongTensor, targets=None):
+        if tokens is None:
+            raise ValueError('You must provide the tokens to forward the training data')
+        
+        device = tokens.device
+        B, T = tokens.size()
+        assert T <= self.args.context_size, f'The sequence size ({T}) must be less than the context size ({self.context_size})'
 
         pos = torch.arange(0, T, dtype=torch.long, device=device) 
 
-        token_emb = self.transformer.token_embedding(input_ids)
-        positional_enc = self.transformer.positional_encoding(pos)
-        x = self.transformer.dropout(token_emb + positional_enc)
+        token_emb = self.token_embeddings(tokens)
+        positional_enc = self.positional_encoding(pos)
+        h = self.dropout(token_emb + positional_enc)
 
-        for block in self.transformer.blocks:
-            x = block(x)
-        x = self.transformer.final_ln(x)
-        logits = self.l_output_head(x)
+        for layers in self.layers:
+            h = layers(h)
+        h = self.norm(h)
+        logits = self.output(h)
         
         if targets is not None:
             B, T, C = logits.shape
