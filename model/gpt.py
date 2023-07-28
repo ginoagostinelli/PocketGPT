@@ -113,12 +113,10 @@ class GPT(nn.Module, PreTrainedModel):
     def _init_weights(self, module: nn.Module):
         std = self.args.initializer_range
 
-        if isinstance(module, nn.Linear):
-            nn.init.normal_(module.weight, mean=0.0, std=std)
-            if module.bias is not None:
-                nn.init.zeros_(module.bias)
-        elif isinstance(module, nn.Embedding):
-            nn.init.normal_(module.weight, mean=0.0, std=std)
+        if isinstance(module, (nn.Linear, nn.Embedding)):
+            module.weight.data.normal_(mean=0.0, std=std)
+            if hasattr(module, 'bias') and module.bias is not None:
+                module.bias.data.zero_()
 
     def forward(self, tokens: torch.LongTensor, targets=None):
         if tokens is None:
