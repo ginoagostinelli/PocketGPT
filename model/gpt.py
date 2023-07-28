@@ -147,7 +147,7 @@ class GPT(nn.Module, PreTrainedModel):
 
         return loss, logits
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def generate(self, input_ids, max_new_tokens):
         for _ in range(max_new_tokens):
             input_ids_cond = input_ids if input_ids.size(1) <= self.args.context_size else input_ids[:, -self.args.context_size:]
