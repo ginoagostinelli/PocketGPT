@@ -1,3 +1,4 @@
+import time
 from gpt import GPT, ModelArgs
 import os
 import torch
@@ -109,14 +110,18 @@ class Trainer:
 
 
 def main():
+    
     args = ModelArgs()
     model = GPT(args)
     trainer = Trainer(model)
 
     print(f'Device: {device}')
     # TODO: add model parameters
-    
+
+    s = time.time()
     trainer.train()
+    e = time.time()
+    print(f'Training time: {e - s:.2f} seconds')
 
 if __name__ == "__main__":    
     main()
