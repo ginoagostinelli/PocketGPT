@@ -8,43 +8,45 @@ from torch.utils.data import DataLoader, Dataset
 
 # config
 batch_size = 32
-batch_iterations = 2500
-eval_interval = 220
+max_iter = 2500
+eval_interval = 2000
 learning_rate = 3e-4
-predict_iters = 220
+predict_iters = 200
 context_size = 12
 save_checkpoint = True
 # save_steps = 1
 resume_from_checkpoint = False
-dataset = 'cornell_movie_dialogs'
-dataset_path = os.path.join('data', dataset)
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+dataset = "cornell_movie_dialogs"
+dataset_path = os.path.join("data", dataset)
+device = "cuda" if torch.cuda.is_available() else "cpu"
 # ------------
-output_dir = os.path.join(os.path.dirname(__file__), 'output')
+output_dir = os.path.join(os.path.dirname(__file__), "output")
+
 
 class Dataset(Dataset):
     def __init__(self, dataset_path):
-        self.dataset = np.memmap(dataset_path, dtype=np.uint16, mode='r')
+        self.dataset = np.memmap(dataset_path, dtype=np.uint16, mode="r")
 
     def __len__(self):
         return len(self.dataset) - context_size
 
     def __getitem__(self, idx):
-        x = torch.from_numpy(self.dataset[idx: idx + context_size].astype(np.int64))
-        y = torch.from_numpy(self.dataset[idx + 1: idx + 1 + context_size].astype(np.int64))
+        x = torch.from_numpy(self.dataset[idx : idx + context_size].astype(np.int64))
+        y = torch.from_numpy(
+            self.dataset[idx + 1 : idx + 1 + context_size].astype(np.int64)
+        )
         return x, y
 
 
 class Trainer:
-
     def __init__(self, model: nn.Module):
         # TODO: Check model parameters
         if model is None:
             raise RuntimeError('"Trainer" requires a model to be specified')
         self.model = model
 
-        self.train_dataset = Dataset(os.path.join(dataset_path, 'train.bin'))
-        self.val_dataset = Dataset(os.path.join(dataset_path, 'val.bin'))
+        self.train_dataset = Dataset(os.path.join(dataset_path, "train.bin"))
+        self.val_dataset = Dataset(os.path.join(dataset_path, "val.bin"))
 
     @staticmethod
     def get_dataloader(dataset, shuffle=True) -> DataLoader:
@@ -60,8 +62,10 @@ class Trainer:
         output = {}
         self.model.eval()
 
-        for split, dataloader in [("train", self.get_dataloader(self.train_dataset, shuffle=False)),
-                                   ("val", self.get_dataloader(self.val_dataset, shuffle=False))]:
+        for split, dataloader in [
+            ("train", self.get_dataloader(self.train_dataset, shuffle=False)),
+            ("val", self.get_dataloader(self.val_dataset, shuffle=False)),
+        ]:
             data = iter(dataloader)
             losses = torch.zeros(predict_iters)
             for k in range(predict_iters):
@@ -73,11 +77,10 @@ class Trainer:
         self.model.train()
         return output
 
-
     def save_model(self, output_dir: str) -> None:
-        '''Save the trained model, then you can reload it with from_pretrained()'''
+        """Save the trained model, then you can reload it with from_pretrained()"""
         os.makedirs(output_dir, exist_ok=True)
-        torch.save(self.model.state_dict(), os.path.join(output_dir, 'model.pt'))
+        torch.save(self.model.state_dict(), os.path.join(output_dir, "model.pt"))
 
     def train(self):
         if resume_from_checkpoint:
@@ -90,8 +93,8 @@ class Trainer:
         dataloader = self.get_dataloader(self.train_dataset)
         data = iter(dataloader)
 
-        for iteration in range(batch_iterations):
-            if iteration % eval_interval == 0 or iteration == batch_iterations - 1:
+        for iteration in range(max_iter):
+            if iteration % eval_interval == 0 or iteration == max_iter - 1:
                 predicted_loss = self.compute_loss()
                 print(
                     f"STEP {iteration} --> Training loss: {predicted_loss['train']:.4f} || Validation loss: {predicted_loss['val']:.4f}"
@@ -110,19 +113,19 @@ class Trainer:
 
 
 def main():
-    
     args = ModelArgs()
     model = GPT(args)
     trainer = Trainer(model)
     n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-    print(f'Number of parameters: {n_params}')
-    print(f'Device: {device}')
+    print(f"Number of parameters: {n_params}")
+    print(f"Device: {device}")
 
     s = time.time()
     trainer.train()
     e = time.time()
-    print(f'Training time: {e - s:.2f} seconds')
+    print(f"Training time: {e - s:.2f} seconds")
 
-if __name__ == "__main__":    
+
+if __name__ == "__main__":
     main()
