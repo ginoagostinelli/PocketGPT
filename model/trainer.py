@@ -67,7 +67,7 @@ class Trainer:
                 X, Y = next(data)
                 X, Y = X.to(device), Y.to(device)
                 loss, _ = self.model(X, Y)
-                losses[k] += loss.item()
+                losses[k] = loss.item()
             output[split] = losses.mean().item()
         self.model.train()
         return output
@@ -117,6 +117,6 @@ def main():
     # TODO: add model parameters
     
     trainer.train()
-    
+
 if __name__ == "__main__":    
     main()
