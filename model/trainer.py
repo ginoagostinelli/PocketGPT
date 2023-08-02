@@ -55,7 +55,7 @@ class Trainer:
         )
 
     @torch.no_grad()
-    def predict_loss(self) -> dict:
+    def compute_loss(self) -> dict:
         output = {}
         self.model.eval()
 
@@ -91,7 +91,7 @@ class Trainer:
 
         for iteration in range(batch_iterations):
             if iteration % eval_interval == 0 or iteration == batch_iterations - 1:
-                predicted_loss = self.predict_loss()
+                predicted_loss = self.compute_loss()
                 print(
                     f"STEP {iteration} --> Training loss: {predicted_loss['train']:.4f} || Validation loss: {predicted_loss['val']:.4f}"
                 )
