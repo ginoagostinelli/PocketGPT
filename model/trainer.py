@@ -114,9 +114,10 @@ def main():
     args = ModelArgs()
     model = GPT(args)
     trainer = Trainer(model)
+    n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
+    print(f'Number of parameters: {n_params}')
     print(f'Device: {device}')
-    # TODO: add model parameters
 
     s = time.time()
     trainer.train()
