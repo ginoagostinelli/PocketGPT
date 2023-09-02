@@ -29,9 +29,7 @@ class Head(nn.Module):
         self.dropout = nn.Dropout(args.dropout)
 
         # Attention Mask
-        self.register_buffer(
-            "bias", torch.tril(torch.ones(args.context_size, args.context_size))
-        )
+        self.register_buffer("bias", torch.tril(torch.ones(args.context_size, args.context_size)))
 
     def forward(self, x: torch.Tensor):
         (
@@ -153,8 +151,9 @@ class GPT(nn.Module, PreTrainedModel):
 
         return loss, logits
 
-    @torch.inference_mode()
-    def generate(self, input_ids, max_new_tokens):
+    @torch.no_grad()
+    def generate(self, input_ids, max_new_tokens, top_k=None, temperature=1.0):
+        """Generate text based on an initial input sequence."""
         for _ in range(max_new_tokens):
             input_ids_cond = (
                 input_ids
@@ -165,6 +164,21 @@ class GPT(nn.Module, PreTrainedModel):
             _, logits = self(input_ids_cond)
 
             logits = logits[:, -1, :]  # (B, C)
+
+            if top_k is not None:
+                # Top-k sampling
+                sorted_logits, sorted_indices = torch.sort(logits, descending=True)
+                cumulative_probs = torch.cumsum(F.softmax(sorted_logits / temperature, dim=-1), dim=-1)
+                sorted_indices_to_remove = cumulative_probs > top_k / 100.0
+                # Shift the indices to account for the last token
+                sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+                sorted_indices_to_remove[..., 0] = 0
+                indices_to_remove = sorted_indices[sorted_indices_to_remove]
+                logits[0, indices_to_remove] = -float("Inf")
+
+            # Apply temperature to the logits
+            logits /= temperature
+
             probs = F.softmax(logits, dim=-1)
 
             # Sample from the distribution
