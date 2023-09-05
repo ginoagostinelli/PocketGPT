@@ -4,7 +4,8 @@ With PocketGPT you can easily train your own GPT models ;)
 
 ## 🔧  Install requirements
 ```python
-pip install -r requirements.txt```
+pip install -r requirements.txt
+```
 
 ## Train your model!!
 Download a dataset:
