@@ -9,7 +9,7 @@ from utils.utils import PreTrainedModel
 @dataclass
 class ModelArgs:
     context_size = 1024
-    vocab_size = 50257
+    vocab_size = 50304
     n_embd = 768
     n_layer = 12
     n_head = 12
